@@ -23,3 +23,12 @@ def test_runs(tmp_path):
         subprocess.check_call([sys.executable, os.path.join(ROOT, "scripts/run.py"), "--dataset", "synthetic",
                                "--method", m, "--clients", "10", "--rounds", "2", "--out", str(tmp_path)])
     assert len(glob.glob(str(tmp_path / "default" / "*.json"))) == 5
+
+
+def test_drift_corrected_baselines(tmp_path):
+    for m in ["scaffold", "feddyn"]:
+        subprocess.check_call([sys.executable, os.path.join(ROOT, "scripts/run.py"), "--dataset", "synthetic",
+                               "--method", m, "--clients", "6", "--rounds", "2", "--optimizer", "sgd", "--lr", "0.05",
+                               "--out", str(tmp_path)])
+    rs = [json.load(open(f)) for f in glob.glob(str(tmp_path / "default" / "*.json"))]
+    assert len(rs) == 2 and all(np.isfinite(r["final_acc"]) for r in rs)

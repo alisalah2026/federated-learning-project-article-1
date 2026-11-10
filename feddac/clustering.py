@@ -94,6 +94,36 @@ def dac_cluster(hist: np.ndarray, L: int, zero_threshold: int | None = None, rng
     return [c for c in clusters if c]
 
 
+def coverage_order(members, hist: np.ndarray, rng: np.random.Generator, tau: float = 0.1):
+    """Coverage-aware order of a sequential chain (docs/ORDER_PLAN.md section 2).
+
+    A client holds class y if h_i(y) >= tau * n_i / C. The order is built from the end: after a random
+    shuffle (tie-break), the member adding the most held classes not yet covered by the clients already
+    placed at the end goes in front of them; when the placed clients cover all classes held in the group,
+    the covered set is reset and a new block starts. If no member adds a class, the member holding the
+    most classes is taken. Returns the members in training order (first to last)."""
+    hist = np.asarray(hist, dtype=np.float64)
+    members = [int(x) for x in rng.permutation(np.asarray(members))]
+    if len(members) <= 1:
+        return members
+    C = hist.shape[1]
+    n = hist[members].sum(1, keepdims=True)
+    held = {i: b for i, b in zip(members, hist[members] >= tau * np.maximum(n, 1) / C)}
+    group_classes = np.any([held[i] for i in members], axis=0)
+    covered = np.zeros(C, dtype=bool)
+    remaining, rev = list(members), []
+    while remaining:
+        gains = [int((held[i] & ~covered).sum()) for i in remaining]
+        if max(gains) == 0:
+            gains = [int(held[i].sum()) for i in remaining]
+        i = remaining.pop(int(np.argmax(gains)))
+        rev.append(i)
+        covered |= held[i]
+        if covered[group_classes].all():
+            covered[:] = False
+    return rev[::-1]
+
+
 def random_groups(n: int, L: int, rng: np.random.Generator):
     perm = rng.permutation(n)
     return [perm[k::L].tolist() for k in range(L)]
@@ -156,7 +186,16 @@ def fedseq_superclients(hist: np.ndarray, rng: np.random.Generator, k_max: int =
 def laplace_histograms(hist: np.ndarray, epsilon: float, rng: np.random.Generator):
     """Record-level epsilon-DP release of label histograms (L1 sensitivity 1).
 
-    Used by the privacy-hardened variant: the server only ever sees noisy histograms."""
+    Used by the privacy-hardened variant: the server only ever sees noisy histograms.
+    Exact specification (docs/PRIVATE_GROUPING_SPEC.md):
+        h~_ic = max(0, round(h_ic + Z_ic)),  Z_ic ~ Laplace(0, 1/epsilon) i.i.d.
+    Rounding and clipping are post-processing, so the release is epsilon-DP under add/remove of
+    one stored record (the record changes one h_ic by 1).  A true zero stays exactly zero with
+    probability 1 - exp(-epsilon/2)/2, so the zero-count threshold T_z of stage 1 is applied to
+    h~ unchanged.  An all-zero noisy row (degenerate histogram) has C >= T_z zero classes and is
+    treated as extreme with an empty class set: it adds no coverage and goes to the smallest group.
+    The guarantee is per stored record; it holds for original examples only if no example is
+    stored twice (feddac.data.partition(replacement=False))."""
     if epsilon is None or epsilon <= 0 or np.isinf(epsilon):
         return np.asarray(hist, dtype=np.float64)
     noisy = hist + rng.laplace(0.0, 1.0 / epsilon, size=hist.shape)

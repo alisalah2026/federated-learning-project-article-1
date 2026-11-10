@@ -42,10 +42,12 @@ def num_params(model):
 
 
 def local_train(model: nn.Module, ds, idx: torch.Tensor, cfg: dict, prox_ref=None, dp=None,
-                amp: bool = False):
+                amp: bool = False, gcorr=None):
     """Train `model` in place on client indices `idx` (1-D LongTensor on device).
 
-    cfg: lr, batch_size, local_epochs, mu (FedProx), optimizer ('adam'|'sgd').
+    cfg: lr, batch_size, local_epochs, mu (FedProx / FedDyn), optimizer ('adam'|'sgd').
+    gcorr: optional list of tensors (one per parameter) added to every mini-batch gradient
+    (SCAFFOLD: c - c_i; FedDyn: -h_i).
     A fresh optimizer is created for every local update (stateless clients, identical for all
     methods).  Returns wall-clock seconds spent.
     """
@@ -59,6 +61,8 @@ def local_train(model: nn.Module, ds, idx: torch.Tensor, cfg: dict, prox_ref=Non
     mu = cfg.get("mu", 0.0)
     ref = [p.detach().clone() for p in prox_ref.parameters()] if (mu > 0 and prox_ref is not None) else None
     if dp is not None:
+        if gcorr is not None:
+            raise ValueError("gradient corrections are not supported with DP-SGD")
         _dp_train(model, ds, idx, opt, dp, mu=mu, ref=ref)
     else:
         B = cfg.get("batch_size", 10)
@@ -75,6 +79,9 @@ def local_train(model: nn.Module, ds, idx: torch.Tensor, cfg: dict, prox_ref=Non
                     loss = loss + 0.5 * mu * sum(((p - r) ** 2).sum() for p, r in zip(model.parameters(), ref))
                 opt.zero_grad(set_to_none=True)
                 loss.backward()
+                if gcorr is not None:
+                    for p_, g_ in zip(model.parameters(), gcorr):
+                        p_.grad.add_(g_)
                 opt.step()
     if idx.is_cuda:
         torch.cuda.synchronize()
@@ -124,18 +131,20 @@ def _dp_train(model, ds, idx, opt, dp, mu=0.0, ref=None):
 
 
 @torch.no_grad()
-def evaluate(model, ds, batch_size=2000, return_preds=False):
+def evaluate(model, ds, batch_size=2000, return_preds=False, split="test"):
+    """split='test' (reported results) or 'val' (held-out training examples, model selection)."""
     from sklearn.metrics import f1_score
 
+    xs, ys = (ds.x_val, ds.y_val) if split == "val" else (ds.x_test, ds.y_test)
     model.eval()
     preds, loss = [], 0.0
-    for s in range(0, ds.y_test.numel(), batch_size):
-        x = ds.prep(ds.x_test[s:s + batch_size])
+    for s in range(0, ys.numel(), batch_size):
+        x = ds.prep(xs[s:s + batch_size])
         out = model(x).float()
-        loss += F.cross_entropy(out, ds.y_test[s:s + batch_size], reduction="sum").item()
+        loss += F.cross_entropy(out, ys[s:s + batch_size], reduction="sum").item()
         preds.append(out.argmax(1))
     p = torch.cat(preds)
-    y = ds.y_test
+    y = ys
     acc = (p == y).float().mean().item() * 100
     f1 = f1_score(y.cpu().numpy(), p.cpu().numpy(), average="macro", zero_division=0) * 100
     res = {"acc": acc, "f1": f1, "loss": loss / y.numel()}

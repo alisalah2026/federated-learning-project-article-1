@@ -17,7 +17,7 @@ import time
 sys.path.insert(0, os.path.dirname(__file__))
 from make_grid import to_argv  # noqa: E402
 
-COST = {"synthetic": 0.1, "mnist": 1.0, "cifar10": 2.5, "cifar100": 8.0, "tinyimagenet": 12.0}
+COST = {"synthetic": 0.1, "mnist": 1.0, "cifar10": 2.5, "cifar100": 8.0, "tinyimagenet": 12.0, "femnist": 1.5}
 
 
 def cost(j):

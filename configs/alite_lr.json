@@ -1,0 +1,11 @@
+{
+ "cfl": 0.01,
+ "fedavg": 0.05,
+ "feddac": 0.01,
+ "fedprox": 0.05,
+ "fedse": 0.02,
+ "fedseq": 0.02,
+ "ifca": 0.02,
+ "ppcfl": 0.05,
+ "rand_seq": 0.02
+}

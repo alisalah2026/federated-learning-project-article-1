@@ -11,6 +11,13 @@ Partitioning follows the manuscript (Section 5.1):
                                 (k_ext = 2 for 10-class datasets; 20% of classes in general)
 Samples are drawn without replacement; if a class pool is exhausted a relaxed-reuse policy
 samples the remainder with replacement from that class (the number of reused samples is logged).
+This is the protocol of the submitted manuscripts (`replacement=True`, the default).
+
+With `replacement=False` (resubmission protocol) no training example is stored more than once in
+the federation: an over-subscribed class is shared out in proportion to the planned counts (every
+client keeps the classes it planned for), clients left below S are topped up from leftover stock of
+their own planned classes, and anything that cannot be placed is dropped, so n_i <= S.  The declared
+public capacity S is stored in `Partition.capacity`.
 """
 from __future__ import annotations
 
@@ -31,7 +38,7 @@ STATS = {
     "cifar100": ((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
     "tinyimagenet": ((0.4802, 0.4481, 0.3975), (0.2770, 0.2691, 0.2821)),
 }
-NUM_CLASSES = {"mnist": 10, "cifar10": 10, "cifar100": 100, "tinyimagenet": 200, "synthetic": 10}
+NUM_CLASSES = {"mnist": 10, "cifar10": 10, "cifar100": 100, "tinyimagenet": 200, "synthetic": 10, "femnist": 62}
 
 
 @dataclass
@@ -42,13 +49,16 @@ class TensorDataset:
     x_test: torch.Tensor
     y_test: torch.Tensor
     num_classes: int
+    x_val: torch.Tensor = field(default=None)  # optional held-out split (validation_split)
+    y_val: torch.Tensor = field(default=None)
     mean: torch.Tensor = field(default=None)
     std: torch.Tensor = field(default=None)
     augment: bool = False
 
     def to(self, device):
-        for k in ("x_train", "y_train", "x_test", "y_test"):
-            setattr(self, k, getattr(self, k).to(device))
+        for k in ("x_train", "y_train", "x_test", "y_test", "x_val", "y_val"):
+            if getattr(self, k) is not None:
+                setattr(self, k, getattr(self, k).to(device))
         c = self.x_train.shape[1]
         m, s = STATS.get(self.name, ((0.5,) * c, (0.5,) * c))
         self.mean = torch.tensor(m, device=device).view(1, -1, 1, 1)
@@ -255,6 +265,95 @@ def load_dataset(name: str, device="cpu") -> TensorDataset:
 
 
 # --------------------------------------------------------------------------------------------
+# FEMNIST with its natural partition by writer
+# --------------------------------------------------------------------------------------------
+def _femnist_raw():
+    """All FEMNIST examples (LEAF/Flower release, Hugging Face `flwrlabs/femnist`): uint8 (n, 1, 28, 28),
+    labels 0-61 and integer writer codes. Cached as femnist.npz."""
+    p = os.path.join(DATA_ROOT, "femnist.npz")
+    if os.path.exists(p):
+        d = np.load(p)
+        return d["x"], d["y"], d["w"]
+    import fcntl
+    os.makedirs(DATA_ROOT, exist_ok=True)
+    with open(os.path.join(DATA_ROOT, "femnist.lock"), "w") as lk:  # one process downloads, the others wait
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        try:
+            if os.path.exists(p):
+                d = np.load(p)
+                return d["x"], d["y"], d["w"]
+            return _femnist_download(p)
+        finally:
+            fcntl.flock(lk, fcntl.LOCK_UN)
+
+
+def _femnist_download(p):
+    import io
+    import json as _json
+    import urllib.request
+    import pyarrow.parquet as pq
+    from PIL import Image
+    root = os.path.join(DATA_ROOT, "hf", "femnist")
+    os.makedirs(root, exist_ok=True)
+    api = "https://huggingface.co/api/datasets/flwrlabs/femnist/parquet/default/train"
+    urls = _json.loads(urllib.request.urlopen(api, timeout=60).read())
+    xs, ys, ws = [], [], []
+    for k, u in enumerate(urls):
+        f = os.path.join(root, f"train-{k}.parquet")
+        if not os.path.exists(f):
+            urllib.request.urlretrieve(u, f + ".part")
+            os.replace(f + ".part", f)
+        t = pq.read_table(f).to_pydict()
+        lcol = "character" if "character" in t else "label"
+        for im, y, w in zip(t["image"], t[lcol], t["writer_id"]):
+            a = np.asarray(Image.open(io.BytesIO(im["bytes"])).convert("L"), dtype=np.uint8)
+            xs.append(a[None])
+            ys.append(int(y))
+            ws.append(str(w))
+    codes = {w: i for i, w in enumerate(sorted(set(ws)))}
+    x = np.ascontiguousarray(np.stack(xs))
+    y = np.asarray(ys, dtype=np.int64)
+    w = np.asarray([codes[v] for v in ws], dtype=np.int64)
+    os.makedirs(DATA_ROOT, exist_ok=True)
+    np.savez(p, x=x, y=y, w=w)
+    return x, y, w
+
+
+def load_femnist_federation(num_clients: int, seed: int, device="cpu", min_samples: int = 100,
+                            fracs=(0.8, 0.1, 0.1)):
+    """Natural partition: `num_clients` writers with at least `min_samples` examples, drawn with `seed`; the
+    examples of each writer are split 80/10/10 into its training data, the validation split and the test split.
+    Returns (TensorDataset, Partition). No example is stored twice; client i holds exactly its writer's
+    training examples."""
+    x, y, w = _femnist_raw()
+    cnt = np.bincount(w)
+    eligible = np.where(cnt >= min_samples)[0]
+    rng = np.random.default_rng(seed + 90_000)
+    writers = np.sort(rng.choice(eligible, size=num_clients, replace=False))
+    tr, va, te, idx = [], [], [], []
+    pos = 0
+    for k, wr in enumerate(writers):
+        ix = np.where(w == wr)[0]
+        ix = np.random.default_rng(seed * 100_003 + int(wr)).permutation(ix)
+        n_tr = int(round(fracs[0] * len(ix)))
+        n_va = int(round(fracs[1] * len(ix)))
+        tr.append(ix[:n_tr])
+        va.append(ix[n_tr:n_tr + n_va])
+        te.append(ix[n_tr + n_va:])
+        idx.append(np.arange(pos, pos + n_tr, dtype=np.int64))
+        pos += n_tr
+    tr, va, te = np.concatenate(tr), np.concatenate(va), np.concatenate(te)
+    ds = TensorDataset("femnist", torch.from_numpy(x[tr]), torch.from_numpy(y[tr]), torch.from_numpy(x[te]),
+                       torch.from_numpy(y[te]), NUM_CLASSES["femnist"], x_val=torch.from_numpy(x[va]),
+                       y_val=torch.from_numpy(y[va]))
+    labels = y[tr]
+    hist = np.stack([np.bincount(labels[i], minlength=NUM_CLASSES["femnist"]) for i in idx])
+    part = Partition(idx, ["natural"] * num_clients, hist, 0, capacity=int(max(len(i) for i in idx)),
+                     dropped_samples=0, replacement=False)
+    return ds.to(device), part, writers
+
+
+# --------------------------------------------------------------------------------------------
 # partitioning
 # --------------------------------------------------------------------------------------------
 @dataclass
@@ -263,12 +362,19 @@ class Partition:
     client_type: list             # 'homo' | 'hetero' | 'extreme'  (ground truth, for analysis)
     histograms: np.ndarray        # (N, C) label counts
     reused_samples: int = 0
+    capacity: int = 0             # declared public per-client capacity S (n_i <= S)
+    dropped_samples: int = 0      # replacement=False: planned samples that could not be placed
+    replacement: bool = True
 
 
 def partition(labels: np.ndarray, num_clients: int, ratios=(0.1, 0.3, 0.6), alpha: float = 0.2,
               num_classes: int = 10, ext_classes: int | None = None, samples_per_client: int | None = None,
-              seed: int = 0) -> Partition:
-    """Split training indices into homogeneous / Dirichlet-heterogeneous / extreme clients."""
+              seed: int = 0, replacement: bool = True, size_sigma: float = 0.0) -> Partition:
+    """Split training indices into homogeneous / Dirichlet-heterogeneous / extreme clients.
+
+    size_sigma > 0 (quantity skew): planned client sizes proportional to log-normal(0, size_sigma)
+    weights, normalised so that they sum to N * S; the weights are drawn from a separate generator
+    so that size_sigma = 0 reproduces the equal-size partition exactly."""
     rng = np.random.default_rng(seed)
     labels = np.asarray(labels)
     n_homo = int(round(ratios[0] * num_clients))
@@ -282,6 +388,7 @@ def partition(labels: np.ndarray, num_clients: int, ratios=(0.1, 0.3, 0.6), alph
     pools = [list(rng.permutation(np.where(labels == c)[0])) for c in range(num_classes)]
     class_all = [np.where(labels == c)[0] for c in range(num_classes)]
     reused = 0
+    dropped = 0
 
     def draw(counts):
         nonlocal reused
@@ -298,26 +405,94 @@ def partition(labels: np.ndarray, num_clients: int, ratios=(0.1, 0.3, 0.6), alph
                 reused += k - take
         return np.asarray(out, dtype=np.int64)
 
+    def allocate_noreplace(plans):
+        """Planned counts (N, C) -> stored counts without reuse.
+
+        1. Every over-subscribed class is shared out in proportion to the plans (largest remainder),
+           so each client keeps every class it planned for and no client is emptied by fill order.
+        2. Clients below S are topped up from leftover stock of their own planned classes,
+           in proportion to their plans; whatever cannot be placed is dropped (n_i <= S)."""
+        plans = np.asarray(plans, dtype=np.int64)
+        supply = np.array([len(p) for p in pools], dtype=np.int64)
+        got = plans.copy()
+        for c in range(num_classes):
+            d = plans[:, c].sum()
+            if d > supply[c]:
+                exact = plans[:, c] * supply[c] / d
+                got[:, c] = np.floor(exact).astype(np.int64)
+                rest = int(supply[c] - got[:, c].sum())
+                got[np.argsort(-(exact - got[:, c]), kind="stable")[:rest], c] += 1
+        left = supply - got.sum(0)
+        for i in range(len(plans)):
+            short = int(plans[i].sum() - got[i].sum())
+            while short > 0:
+                room = np.where(plans[i] > 0, left, 0)
+                if room.sum() == 0:
+                    break
+                w = np.where(room > 0, plans[i], 0).astype(np.float64)
+                add = np.minimum(np.floor(short * w / w.sum()).astype(np.int64), room)
+                if add.sum() == 0:
+                    add[int(np.argmax(np.where(room > 0, w, -1)))] = 1
+                got[i] += add
+                left -= add
+                short -= int(add.sum())
+        return got
+
     types = ["homo"] * n_homo + ["hetero"] * n_het + ["extreme"] * n_ext
+    if size_sigma and size_sigma > 0:
+        w = np.random.default_rng(seed + 70_000).lognormal(0.0, size_sigma, num_clients)
+        sizes = np.maximum(1, np.floor(w / w.sum() * S * num_clients)).astype(np.int64)
+    else:
+        sizes = np.full(num_clients, S, dtype=np.int64)
     plans = []
-    for t in types:
+    for t, Si in zip(types, sizes):
+        Si = int(Si)
         if t == "homo":
-            base = np.full(num_classes, S // num_classes)
-            base[: S - base.sum()] += 1
+            base = np.full(num_classes, Si // num_classes)
+            base[: Si - base.sum()] += 1
             counts = base
         elif t == "hetero":
             p = rng.dirichlet(np.full(num_classes, alpha))
-            counts = rng.multinomial(S, p)
+            counts = rng.multinomial(Si, p)
         else:
             cls = rng.choice(num_classes, size=ext_classes, replace=False)
             p = np.zeros(num_classes)
             p[cls] = rng.dirichlet(np.ones(ext_classes))
-            counts = rng.multinomial(S, p)
+            counts = rng.multinomial(Si, p)
         plans.append(counts)
-    idx = [draw(c) for c in plans]
+    if size_sigma and size_sigma > 0:
+        S = int(sizes.max())  # declared capacity covers the largest planned client
+    if replacement:
+        idx = [draw(c) for c in plans]
+    else:
+        got = allocate_noreplace(plans)
+        dropped = int(np.sum(plans) - got.sum())
+        idx = []
+        for counts in got:
+            out = []
+            for c, k in enumerate(counts):
+                out.extend(pools[c][:k])
+                del pools[c][:k]
+            idx.append(np.asarray(out, dtype=np.int64))
     # shuffle client order so that client id does not reveal its type
     order = rng.permutation(num_clients)
     idx = [idx[i] for i in order]
     types = [types[i] for i in order]
     hist = np.stack([np.bincount(labels[i], minlength=num_classes) for i in idx])
-    return Partition(idx, types, hist, reused)
+    return Partition(idx, types, hist, reused, capacity=S, dropped_samples=dropped, replacement=replacement)
+
+
+def validation_split(labels: np.ndarray, frac: float, seed: int = 0):
+    """Stratified hold-out of `frac` of the training set for model selection (never the test set).
+
+    Returns (train_idx, val_idx) as sorted int64 arrays of positions in `labels`."""
+    labels = np.asarray(labels)
+    rng = np.random.default_rng(seed + 50_000)
+    val = []
+    for c in np.unique(labels):
+        ix = np.where(labels == c)[0]
+        val.append(rng.permutation(ix)[: int(round(frac * len(ix)))])
+    val = np.sort(np.concatenate(val)).astype(np.int64)
+    mask = np.ones(len(labels), dtype=bool)
+    mask[val] = False
+    return np.where(mask)[0].astype(np.int64), val

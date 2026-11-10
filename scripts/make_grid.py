@@ -194,7 +194,45 @@ def pilot():
     return P
 
 
+# resubmission protocol flags (docs/PLAN.md section 5)
+PROTOCOL = ["--deterministic", "--no_replacement", "--val_frac", "0.1"]
+M7 = ["fedavg", "fedprox", "ppcfl", "fedse", "fedseq", "feddac", "rand_seq"]
+
+
+def a0_grid():
+    """A0 pilot of the resubmission protocol: repeat-run identity on GPU, timing and packing.
+
+    phase 'resnet': CIFAR-10 ResNet-18-GN, default N=20, 7 methods x 2 repeats, 10 of 100 rounds
+                    (per-round time and packing for the A1/A8 cost estimate);
+    phase 'cnn':    CIFAR-10 CNN, default and 90 % extreme (N=20), 7 methods x 2 repeats, 100 rounds,
+                    plus DP-SGD (eps 4, declared capacity) for FedAvg and FedDAC x 2 repeats, 10 rounds.
+    Repeats differ only in --tag (rep0/rep1), so their seeds, partitions and groups are identical."""
+    jobs = []
+    for m in M7:
+        for rep in range(2):
+            jobs.append(job("a0", 0, dataset="cifar10", method=m, seed=0, rounds=10, phase="resnet",
+                            extra=PROTOCOL + ["--model", "resnet18gn", "--optimizer", "sgd", "--lr", "0.05",
+                                              "--tag", f"resnet_rep{rep}"]))
+    for c in (dict(), dict(ratios=[0.1, 0.0, 0.9])):
+        for m in M7:
+            for rep in range(2):
+                jobs.append(job("a0", 1, dataset="cifar10", method=m, seed=0, phase="cnn",
+                                extra=PROTOCOL + ["--optimizer", "sgd", "--lr", "0.02", "--tag", f"cnn_rep{rep}"], **c))
+    for m in ("fedavg", "feddac"):
+        for rep in range(2):
+            jobs.append(job("a0", 1, dataset="cifar10", method=m, seed=0, rounds=10, dp_eps=4.0, phase="cnn",
+                            extra=PROTOCOL + ["--tag", f"dp_rep{rep}"]))
+    return jobs
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "a0":
+        for ph in ("resnet", "cnn"):
+            with open(f"configs/a0_{ph}.jsonl", "w") as f:
+                for j in a0_grid():
+                    if j["phase"] == ph:
+                        f.write(json.dumps(j) + "\n")
+        sys.exit(0)
     if len(sys.argv) > 1 and sys.argv[1] in ("pilot", "diag", "scale", "mia", "lrsel", "dpprox", "attacksgd"):
         fn = {"pilot": pilot, "diag": diag, "mia": mia_grid, "lrsel": lrsel_grid, "dpprox": dpprox_grid, "attacksgd": attacksgd_grid,
               "scale": lambda: scale_grid(["--optimizer", "sgd", "--lr", "0.05"])}[sys.argv[1]]

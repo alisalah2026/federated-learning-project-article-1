@@ -117,7 +117,21 @@ def ldi_attack(ds, cap, part, train_cfg, device, rng, n_shadow=240, max_chain=6,
     return out
 
 
-def mia(model_or_state, ds, member_idx: np.ndarray, device, rng, n=500, n_aux_frac=0.5):
+@torch.no_grad()
+def logit_conf(model, ds, x_uint8, y, batch=2000):
+    """Logit-scaled confidence phi = z_y - logsumexp_{y' != y} z_y' (Carlini et al., 2022)."""
+    model.eval()
+    out = []
+    for s in range(0, y.numel(), batch):
+        z = model(ds.prep(x_uint8[s:s + batch])).float()
+        yy = y[s:s + batch]
+        zy = z.gather(1, yy[:, None]).squeeze(1)
+        z_other = z.scatter(1, yy[:, None], float("-inf"))
+        out.append(zy - torch.logsumexp(z_other, dim=1))
+    return torch.cat(out)
+
+
+def mia(model_or_state, ds, member_idx: np.ndarray, device, rng, n=500, n_aux_frac=0.5, lira=None):
     from sklearn.metrics import roc_auc_score, roc_curve
 
     if isinstance(model_or_state, dict):
@@ -141,5 +155,15 @@ def mia(model_or_state, ds, member_idx: np.ndarray, device, rng, n=500, n_aux_fr
     y = np.r_[np.ones(k), np.zeros(k)]
     s = -np.r_[lm, ln]
     fpr, tpr, _ = roc_curve(y, s)
-    return {"auc": float(roc_auc_score(y, s)), "tpr@1%fpr": float(np.interp(0.01, fpr, tpr)),
-            "gap_loss": float(ln.mean() - lm.mean())}
+    res = {"auc": float(roc_auc_score(y, s)), "tpr@1%fpr": float(np.interp(0.01, fpr, tpr)),
+           "gap_loss": float(ln.mean() - lm.mean())}
+    if lira is not None:
+        # offline LiRA: standardise the target's confidence by the per-example OUT distribution of shadow models
+        pm = logit_conf(m, ds, ds.x_train[mem], ds.y_train[mem])
+        pn = logit_conf(m, ds, ds.x_test[non], ds.y_test[non])
+        zm = (pm - lira["train_mu"][mem]) / lira["train_sd"][mem]
+        zn = (pn - lira["test_mu"][non]) / lira["test_sd"][non]
+        sl = torch.cat([zm, zn]).cpu().numpy()
+        f2, t2, _ = roc_curve(y, sl)
+        res.update({"lira_auc": float(roc_auc_score(y, sl)), "lira_tpr@1%fpr": float(np.interp(0.01, f2, t2))})
+    return res

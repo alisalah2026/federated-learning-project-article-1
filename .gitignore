@@ -6,3 +6,5 @@ data/
 SHARD_DONE
 .venv/
 configs/*.jsonl
+!results/conf/**/*.npz
+!configs/lira_stats.npz

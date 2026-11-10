@@ -75,12 +75,21 @@ class ResNet18GN(nn.Module):
 
     def forward(self, x):
         x = self.layers(self.stem(x))
-        x = F.adaptive_avg_pool2d(x, 1).flatten(1)
+        if torch.are_deterministic_algorithms_enabled():  # adaptive_avg_pool2d backward is not deterministic on CUDA
+            x = x.mean((2, 3))
+        else:
+            x = F.adaptive_avg_pool2d(x, 1).flatten(1)
         return self.out(x)
 
 
-def build_model(dataset: str, num_classes: int):
-    if dataset in ("mnist", "synthetic"):
+def build_model(dataset: str, num_classes: int, arch: str | None = None):
+    """Default architecture per dataset; `arch='resnet18gn'` overrides it (e.g. CIFAR-10 ResNet)."""
+    if arch == "resnet18gn":
+        return ResNet18GN(num_classes, in_ch=1 if dataset in ("mnist", "synthetic", "femnist") else 3,
+                          input_size=64 if dataset == "tinyimagenet" else 32)
+    if arch not in (None, "", "default"):
+        raise ValueError(arch)
+    if dataset in ("mnist", "synthetic", "femnist"):
         return CNN_MNIST(num_classes)
     if dataset == "cifar10":
         return CNN_CIFAR(num_classes)

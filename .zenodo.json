@@ -1,9 +1,40 @@
 {
-  "title": "FedDAC: Federated Learning with Distribution Anonymization through Clustering on non-IID data - code, trained models and experiment logs",
-  "upload_type": "software",
-  "description": "Source code, experiment grid, raw per-run results (JSON), trained global models and aggregated tables/figures for the revised FedDAC manuscript. Includes FedDAC, FedAvg, FedProx, PP-CFL, FedSe and FedSeq re-implementations, component ablations, record-level DP-SGD with RDP accounting, and label-distribution/membership inference attacks on MNIST, CIFAR-10, CIFAR-100 and Tiny-ImageNet.",
-  "creators": [{"name": "Hashim, Ali"}],
-  "license": "MIT",
-  "keywords": ["federated learning", "non-IID", "client clustering", "differential privacy", "label distribution inference", "membership inference"],
-  "version": "1.0.0"
+ "title": "Grouping or Ordering? Coverage-Aware Sequential Federated Learning under Label Skew - code and results",
+ "upload_type": "software",
+ "description": "Source code, prespecified analysis plans, per-run results (JSON) and generated manuscript tables and figures for the study 'Grouping or Ordering? Coverage-Aware Sequential Federated Learning under Label Skew' (revised FedDAC study). Includes the DAC grouping rule (Distribution-Aware Coverage), the coverage-aware chain order (FedDAC-Order), random, label-balanced and FedSeq grouping, IFCA, CFL, FedAvg, FedProx and PP-CFL, coverage metrics for groupings, record-level DP-SGD with a declared client capacity and RDP accounting, and label-distribution and membership inference attacks (loss attack, offline LiRA) on CIFAR-10 and MNIST. Version 2.0.0 contains the 673 runs of the revision protocol (partitions without duplicated examples, validation-based tuning, deterministic kernels, paired seeds). The v1.0.0 results and models of the earlier protocol are retained for the separately reported ResNet-18 results.",
+ "creators": [
+  {
+   "name": "Alasady Ali Salah",
+   "affiliation": "Institute of Informatics and Computing in Energy, Universiti Tenaga Nasional, Malaysia; University of Basrah, Iraq"
+  },
+  {
+   "name": "Norziana Jamil",
+   "affiliation": "College of IT, United Arab Emirates University, United Arab Emirates"
+  },
+  {
+   "name": "Zuhaira Muhammad Zain",
+   "affiliation": "Princess Nourah bint Abdulrahman University, Saudi Arabia"
+  },
+  {
+   "name": "Ezedin Baraka",
+   "affiliation": "College of IT, United Arab Emirates University, United Arab Emirates"
+  },
+  {
+   "name": "Wed Akeel Awadh",
+   "affiliation": "Institute of Informatics and Computing in Energy, Universiti Tenaga Nasional, Malaysia; University of Basrah, Iraq"
+  }
+ ],
+ "license": "MIT",
+ "keywords": [
+  "federated learning",
+  "label skew",
+  "non-IID",
+  "client grouping",
+  "sequential training",
+  "client ordering",
+  "differential privacy",
+  "membership inference",
+  "label distribution inference"
+ ],
+ "version": "2.0.0"
 }

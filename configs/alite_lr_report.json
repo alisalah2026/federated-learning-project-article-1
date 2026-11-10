@@ -1,0 +1,297 @@
+{
+ "rule": "argmax last5_val_acc per method, ties to smaller lr",
+ "rows": [
+  {
+   "method": "cfl",
+   "lr": 0.01,
+   "last5_val_acc": 60.575997829437256,
+   "final_val_acc": 61.039996147155755,
+   "final_acc": 60.969996452331536,
+   "selected": true,
+   "time_s": 2257.8040130138397,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "cfl",
+   "lr": 0.02,
+   "last5_val_acc": 47.22727951188139,
+   "final_val_acc": 47.18180755023594,
+   "final_acc": 47.248408853050144,
+   "selected": false,
+   "time_s": 2126.6468753814697,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "cfl",
+   "lr": 0.05,
+   "last5_val_acc": 45.39869019504518,
+   "final_val_acc": 45.55200451401024,
+   "final_acc": 45.168186027414905,
+   "selected": false,
+   "time_s": 935.0698688030243,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedavg",
+   "lr": 0.01,
+   "last5_val_acc": 60.575997829437256,
+   "final_val_acc": 61.03999614715576,
+   "final_acc": 60.96999645233154,
+   "selected": false,
+   "time_s": 2174.928696155548,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedavg",
+   "lr": 0.02,
+   "last5_val_acc": 61.23199820518494,
+   "final_val_acc": 61.19999885559082,
+   "final_acc": 62.049996852874756,
+   "selected": false,
+   "time_s": 2280.4045984745026,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedavg",
+   "lr": 0.05,
+   "last5_val_acc": 62.13599681854248,
+   "final_val_acc": 62.07999587059021,
+   "final_acc": 61.079996824264526,
+   "selected": true,
+   "time_s": 2140.737850666046,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "feddac",
+   "lr": 0.01,
+   "last5_val_acc": 60.783997774124146,
+   "final_val_acc": 60.55999994277954,
+   "final_acc": 60.39999723434448,
+   "selected": true,
+   "time_s": 2193.7173550128937,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "feddac",
+   "lr": 0.02,
+   "last5_val_acc": 60.71599841117859,
+   "final_val_acc": 61.57999634742737,
+   "final_acc": 61.959999799728394,
+   "selected": false,
+   "time_s": 2227.0803067684174,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "feddac",
+   "lr": 0.05,
+   "last5_val_acc": 9.999999403953552,
+   "final_val_acc": 9.999999403953552,
+   "final_acc": 9.999999403953552,
+   "selected": false,
+   "time_s": 1689.9480850696564,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedprox",
+   "lr": 0.01,
+   "last5_val_acc": 60.43999791145325,
+   "final_val_acc": 61.079996824264526,
+   "final_acc": 61.03999614715576,
+   "selected": false,
+   "time_s": 3613.705139875412,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedprox",
+   "lr": 0.02,
+   "last5_val_acc": 61.33999705314636,
+   "final_val_acc": 61.5399956703186,
+   "final_acc": 62.18999624252319,
+   "selected": false,
+   "time_s": 3586.82120013237,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedprox",
+   "lr": 0.05,
+   "last5_val_acc": 61.747997999191284,
+   "final_val_acc": 61.559998989105225,
+   "final_acc": 61.169999837875366,
+   "selected": true,
+   "time_s": 3371.6694843769073,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedse",
+   "lr": 0.01,
+   "last5_val_acc": 59.10799860954285,
+   "final_val_acc": 56.859999895095825,
+   "final_acc": 56.87999725341797,
+   "selected": false,
+   "time_s": 2165.5877680778503,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedse",
+   "lr": 0.02,
+   "last5_val_acc": 60.659998655319214,
+   "final_val_acc": 57.69999623298645,
+   "final_acc": 58.52999687194824,
+   "selected": true,
+   "time_s": 2257.721849679947,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedse",
+   "lr": 0.05,
+   "last5_val_acc": 9.999999403953552,
+   "final_val_acc": 9.999999403953552,
+   "final_acc": 9.999999403953552,
+   "selected": false,
+   "time_s": 2093.8202726840973,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedseq",
+   "lr": 0.01,
+   "last5_val_acc": 60.57599902153015,
+   "final_val_acc": 62.04000115394592,
+   "final_acc": 62.41999864578247,
+   "selected": false,
+   "time_s": 2189.496518611908,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedseq",
+   "lr": 0.02,
+   "last5_val_acc": 62.203999757766724,
+   "final_val_acc": 64.6399974822998,
+   "final_acc": 63.70999813079834,
+   "selected": true,
+   "time_s": 2076.023788690567,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "fedseq",
+   "lr": 0.05,
+   "last5_val_acc": 9.999999403953552,
+   "final_val_acc": 9.999999403953552,
+   "final_acc": 9.999999403953552,
+   "selected": false,
+   "time_s": 1960.522377729416,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "ifca",
+   "lr": 0.01,
+   "last5_val_acc": 46.121844513318706,
+   "final_val_acc": 45.71012419171828,
+   "final_acc": 44.69361292450153,
+   "selected": false,
+   "time_s": 2226.1909704208374,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "ifca",
+   "lr": 0.02,
+   "last5_val_acc": 46.98628530416106,
+   "final_val_acc": 46.65065361353334,
+   "final_acc": 45.73718571982529,
+   "selected": true,
+   "time_s": 2125.536745786667,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "ifca",
+   "lr": 0.05,
+   "last5_val_acc": 43.82983195819618,
+   "final_val_acc": 43.67467628965344,
+   "final_acc": 43.60691705917381,
+   "selected": false,
+   "time_s": 1338.3863623142242,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "ppcfl",
+   "lr": 0.01,
+   "last5_val_acc": 56.99999928474426,
+   "final_val_acc": 57.40000009536743,
+   "final_acc": 58.09999704360962,
+   "selected": false,
+   "time_s": 2176.320920228958,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "ppcfl",
+   "lr": 0.02,
+   "last5_val_acc": 60.147998332977295,
+   "final_val_acc": 61.10000014305115,
+   "final_acc": 61.05999946594238,
+   "selected": false,
+   "time_s": 2255.1551129817963,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "ppcfl",
+   "lr": 0.05,
+   "last5_val_acc": 60.679999589920044,
+   "final_val_acc": 61.14000082015991,
+   "final_acc": 60.49000024795532,
+   "selected": true,
+   "time_s": 2136.6516828536987,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "rand_seq",
+   "lr": 0.01,
+   "last5_val_acc": 61.647998094558716,
+   "final_val_acc": 61.219996213912964,
+   "final_acc": 61.239999532699585,
+   "selected": false,
+   "time_s": 2200.819325685501,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "rand_seq",
+   "lr": 0.02,
+   "last5_val_acc": 62.29599952697754,
+   "final_val_acc": 62.00000047683716,
+   "final_acc": 62.04000115394592,
+   "selected": true,
+   "time_s": 2187.4429297447205,
+   "device": "NVIDIA RTX A5000"
+  },
+  {
+   "method": "rand_seq",
+   "lr": 0.05,
+   "last5_val_acc": 56.93999886512756,
+   "final_val_acc": 55.640000104904175,
+   "final_acc": 56.16999864578247,
+   "selected": false,
+   "time_s": 1657.9901208877563,
+   "device": "NVIDIA RTX A5000"
+  }
+ ],
+ "repeats": [
+  {
+   "method": "fedavg",
+   "lr": 0.02,
+   "identical": true,
+   "max_abs_diff_acc": 0.0,
+   "device": [
+    "NVIDIA RTX A5000",
+    "NVIDIA RTX A5000"
+   ]
+  },
+  {
+   "method": "feddac",
+   "lr": 0.02,
+   "identical": true,
+   "max_abs_diff_acc": 0.0,
+   "device": [
+    "NVIDIA RTX A5000",
+    "NVIDIA RTX A5000"
+   ]
+  }
+ ]
+}

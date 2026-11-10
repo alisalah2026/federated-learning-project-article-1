@@ -17,6 +17,15 @@ Methods that also consume label statistics (DAC, FedSe, FedSeq, PP-CFL) pay for 
 histograms are released once with the Laplace mechanism (eps_hist, sensitivity 1) and eps_sgd is
 reduced accordingly, so that eps_total = eps_sgd + eps_hist is identical across methods
 (basic sequential composition).
+
+Public capacity (resubmission protocol).  Under add/remove adjacency the mechanism must not depend
+on the private client size n_i.  With `capacity=S_i` (a public bound, n_i <= S_i) the sampling rate
+q_i = B / S_i, the number of steps and sigma_i are functions of S_i only; Poisson sampling runs over
+the n_i stored records and the noisy sum is divided by the fixed B, so a neighbouring dataset with
+n_i +/- 1 records is processed by the same (q_i, T_i, sigma_i).  The historical runs had n_i = S_i
+for every client, so they coincide with this mechanism (analysis/plan_checks/stored_sigma_check.json).
+The guarantee is per stored record; it covers original examples only if no example is stored twice
+(feddac.data.partition(replacement=False)).
 """
 from __future__ import annotations
 
@@ -43,8 +52,11 @@ class ClientDP:
     """Per-client DP-SGD configuration."""
 
     def __init__(self, n_samples: int, batch_size: int, rounds: int, local_epochs: int,
-                 eps_sgd: float, delta: float, clip: float = 1.0):
-        self.q = min(1.0, batch_size / max(n_samples, 1))
+                 eps_sgd: float, delta: float, clip: float = 1.0, capacity: int | None = None):
+        if capacity is not None:
+            assert n_samples <= capacity, f"client holds {n_samples} records > declared capacity {capacity}"
+        self.n_basis = int(capacity if capacity is not None else n_samples)
+        self.q = min(1.0, batch_size / max(self.n_basis, 1))
         self.steps_per_round = max(1, int(math.ceil(local_epochs / self.q)))
         self.total_steps = self.steps_per_round * rounds
         self.clip = clip
@@ -54,5 +66,5 @@ class ClientDP:
         self.sigma = calibrate_sigma(eps_sgd, delta, self.q, self.total_steps)
 
     def report(self):
-        return {"q": self.q, "sigma": self.sigma, "steps": self.total_steps,
+        return {"q": self.q, "sigma": self.sigma, "steps": self.total_steps, "n_basis": self.n_basis,
                 "eps": spent_epsilon(self.sigma, self.delta, self.q, self.total_steps)}

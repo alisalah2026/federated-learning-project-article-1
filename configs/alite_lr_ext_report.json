@@ -1,0 +1,86 @@
+{
+ "rule": "argmax last5_val_acc per method, ties to smaller lr",
+ "rows": [
+  {
+   "method": "feddac",
+   "lr": 0.005,
+   "last5_val_acc": 58.38399887084961,
+   "final_val_acc": 56.09999895095825,
+   "final_acc": 55.070000886917114,
+   "selected": false,
+   "time_s": 2878.974653482437,
+   "device": "NVIDIA A40"
+  },
+  {
+   "method": "feddac",
+   "lr": 0.01,
+   "last5_val_acc": 62.71599888801575,
+   "final_val_acc": 62.63999938964844,
+   "final_acc": 61.59999966621399,
+   "selected": false,
+   "time_s": 2880.138043165207,
+   "device": "NVIDIA A40"
+  },
+  {
+   "method": "feddac",
+   "lr": 0.02,
+   "last5_val_acc": 64.91999864578247,
+   "final_val_acc": 64.80000019073486,
+   "final_acc": 64.31999802589417,
+   "selected": true,
+   "time_s": 2995.9105730056763,
+   "device": "NVIDIA A40"
+  },
+  {
+   "method": "feddac",
+   "lr": 0.05,
+   "last5_val_acc": 54.78399872779846,
+   "final_val_acc": 52.779996395111084,
+   "final_acc": 52.10999846458435,
+   "selected": false,
+   "time_s": 3065.1066286563873,
+   "device": "NVIDIA A40"
+  },
+  {
+   "method": "rand_seq",
+   "lr": 0.005,
+   "last5_val_acc": 59.19599771499634,
+   "final_val_acc": 54.79999780654907,
+   "final_acc": 53.999996185302734,
+   "selected": false,
+   "time_s": 2315.9247057437897,
+   "device": "NVIDIA A40"
+  },
+  {
+   "method": "rand_seq",
+   "lr": 0.01,
+   "last5_val_acc": 63.35999846458435,
+   "final_val_acc": 61.079996824264526,
+   "final_acc": 60.2400004863739,
+   "selected": false,
+   "time_s": 2317.0094332695007,
+   "device": "NVIDIA A40"
+  },
+  {
+   "method": "rand_seq",
+   "lr": 0.02,
+   "last5_val_acc": 65.63999772071838,
+   "final_val_acc": 65.31999707221985,
+   "final_acc": 63.95999789237976,
+   "selected": true,
+   "time_s": 2303.495109796524,
+   "device": "NVIDIA A40"
+  },
+  {
+   "method": "rand_seq",
+   "lr": 0.05,
+   "last5_val_acc": 57.12799668312073,
+   "final_val_acc": 55.299997329711914,
+   "final_acc": 55.46000003814697,
+   "selected": false,
+   "time_s": 2213.5144352912903,
+   "device": "NVIDIA A40"
+  }
+ ],
+ "repeats": []
+}
